@@ -1,0 +1,84 @@
+class State:
+    def __init__(self):
+        self.transitions = {}  # символ -> State
+        self.epsilon = []      # ε-переходы
+
+class NFA:
+    def __init__(self, start, accept):
+        self.start = start
+        self.accept = accept
+
+def thompson_construction(regex):
+    """Построение НКА из регулярного выражения"""
+    stack = []
+    
+    for token in regex:
+        if token.isalpha():  # Базовый символ
+            s1, s2 = State(), State()
+            s1.transitions[token] = s2
+            stack.append(NFA(s1, s2))
+        
+        elif token == '*':   # Замыкание Клини
+            nfa = stack.pop()
+            s1, s2 = State(), State()
+            s1.epsilon.extend([nfa.start, s2])
+            nfa.accept.epsilon.extend([nfa.start, s2])
+            stack.append(NFA(s1, s2))
+        
+        elif token == '|':   # Объединение
+            nfa2, nfa1 = stack.pop(), stack.pop()
+            s1, s2 = State(), State()
+            s1.epsilon.extend([nfa1.start, nfa2.start])
+            nfa1.accept.epsilon.append(s2)
+            nfa2.accept.epsilon.append(s2)
+            stack.append(NFA(s1, s2))
+        
+        elif token == '.':   # Конкатенация
+            nfa2, nfa1 = stack.pop(), stack.pop()
+            nfa1.accept.epsilon.append(nfa2.start)
+            stack.append(NFA(nfa1.start, nfa2.accept))
+    
+    return stack.pop()
+
+def epsilon_closure(states):
+    """Вычисление ε-замыкания множества состояний"""
+    closure = set(states)
+    stack = list(states)
+    while stack:
+        state = stack.pop()
+        for eps_state in state.epsilon:
+            if eps_state not in closure:
+                closure.add(eps_state)
+                stack.append(eps_state)
+    return closure
+
+def matches(nfa, string):
+    """Проверка, принимает ли НКА строку"""
+    current = epsilon_closure({nfa.start})
+    
+    for char in string:
+        next_states = set()
+        for state in current:
+            if char in state.transitions:
+                next_states.add(state.transitions[char])
+        
+        if not next_states:
+            return False
+        
+        current = epsilon_closure(next_states)
+    
+    return nfa.accept in current
+
+# Пример использования
+if __name__ == "__main__":
+    # Выражение a|b* в обратной польской записи: a b * |
+    nfa = thompson_construction(['a', 'b', '*', '|'])
+    
+    print("Тестирование НКА для a|b*:")
+    tests = [("", True), ("a", True), ("b", True), 
+             ("bb", True), ("bbb", True), ("ab", False), ("ba", False)]
+    
+    for test_str, expected in tests:
+        result = matches(nfa, test_str)
+        status = "✓" if result == expected else "✗"
+        print(f"{status} '{test_str}' -> {result} (ожидалось: {expected})")
