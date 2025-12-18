@@ -1,0 +1,68 @@
+import math
+
+def graham_scan(points):
+    """Алгоритм Грэхема для построения выпуклой оболочки"""
+    
+    # Находим точку с минимальной Y (и минимальной X при равенстве)
+    p0 = min(points, key=lambda p: (p[1], p[0]))
+    
+    # Сортируем точки по полярному углу относительно p0
+    def polar_angle(p):
+        return math.atan2(p[1] - p0[1], p[0] - p0[0])
+    
+    def distance(p):
+        return (p[0] - p0[0])**2 + (p[1] - p0[1])**2
+    
+    sorted_points = sorted(points, 
+                          key=lambda p: (polar_angle(p), distance(p)))
+    
+    # Функция для определения направления поворота
+    def cross_product(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    
+    # Построение оболочки
+    hull = []
+    
+    for p in sorted_points:
+        while len(hull) >= 2 and cross_product(hull[-2], hull[-1], p) <= 0:
+            hull.pop()
+        hull.append(p)
+    
+    return hull
+
+# Пример использования
+if __name__ == "__main__":
+    # Тестовые точки
+    points = [(0, 0), (1, 1), (2, 0), (1, -1), (0.5, 0.5), 
+              (0, 3), (3, 0), (1.5, 1.5), (2, 2)]
+    
+    hull = graham_scan(points)
+    
+    print("Все точки:", points)
+    print("Выпуклая оболочка:", hull)
+    
+    # Визуализация (опционально)
+    try:
+        import matplotlib.pyplot as plt
+        
+        # Разделяем координаты
+        x_all, y_all = zip(*points)
+        x_hull, y_hull = zip(*hull)
+        
+        # Замыкаем оболочку
+        x_hull_closed = list(x_hull) + [x_hull[0]]
+        y_hull_closed = list(y_hull) + [y_hull[0]]
+        
+        plt.figure(figsize=(8, 6))
+        plt.scatter(x_all, y_all, c='blue', label='Все точки')
+        plt.plot(x_hull_closed, y_hull_closed, 'r-', linewidth=2, label='Выпуклая оболочка')
+        plt.scatter(x_hull, y_hull, c='red', s=100)
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.title('Алгоритм Грэхема')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+        
+    except ImportError:
+        print("Для визуализации установите matplotlib: pip install matplotlib")
