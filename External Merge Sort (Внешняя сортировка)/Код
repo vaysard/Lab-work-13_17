@@ -1,0 +1,84 @@
+import heapq
+import tempfile
+import os
+
+def external_merge_sort(input_file, output_file, chunk_size=1000):
+    """Внешняя сортировка больших файлов"""
+    
+    # Фаза 1: Создание отсортированных чанков
+    temp_files = []
+    
+    with open(input_file, 'r') as f:
+        chunk = []
+        for line in f:
+            chunk.append(line.strip())
+            if len(chunk) >= chunk_size:
+                chunk.sort()
+                temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+                for item in chunk:
+                    temp_file.write(f"{item}\n")
+                temp_file.close()
+                temp_files.append(temp_file.name)
+                chunk = []
+        
+        # Последний чанок
+        if chunk:
+            chunk.sort()
+            temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+            for item in chunk:
+                temp_file.write(f"{item}\n")
+            temp_file.close()
+            temp_files.append(temp_file.name)
+    
+    # Фаза 2: K-way слияние
+    files = [open(fn, 'r') for fn in temp_files]
+    heap = []
+    
+    # Инициализация heap
+    for i, file in enumerate(files):
+        line = file.readline().strip()
+        if line:
+            heapq.heappush(heap, (line, i))
+    
+    with open(output_file, 'w') as out:
+        while heap:
+            value, file_idx = heapq.heappop(heap)
+            out.write(f"{value}\n")
+            
+            # Читаем следующую строку из того же файла
+            next_line = files[file_idx].readline().strip()
+            if next_line:
+                heapq.heappush(heap, (next_line, file_idx))
+    
+    # Очистка
+    for file in files:
+        file.close()
+    for fn in temp_files:
+        os.remove(fn)
+
+# Пример использования
+def create_test_file(filename, data):
+    with open(filename, 'w') as f:
+        for item in data:
+            f.write(f"{item}\n")
+
+if __name__ == "__main__":
+    # Тестовые данные
+    test_data = ["banana", "apple", "grape", "orange", "kiwi", "pear", "melon"]
+    
+    # Создаем тестовый файл
+    create_test_file("input.txt", test_data)
+    
+    # Сортируем
+    external_merge_sort("input.txt", "output.txt", chunk_size=3)
+    
+    # Проверяем результат
+    with open("output.txt", 'r') as f:
+        sorted_data = [line.strip() for line in f]
+    
+    print("Исходные данные:", test_data)
+    print("Отсортированные:", sorted_data)
+    
+    # Очистка
+    os.remove("input.txt")
+    os.remove("output.txt")
