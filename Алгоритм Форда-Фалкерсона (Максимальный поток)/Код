@@ -1,0 +1,179 @@
+from collections import deque
+
+class FordFulkerson:
+    """Эффективная реализация алгоритма Форда-Фалкерсона"""
+    
+    def __init__(self, vertices):
+        self.V = vertices
+        self.graph = [[0] * vertices for _ in range(vertices)]
+    
+    def add_edge(self, u, v, capacity):
+        """Добавить направленное ребро с пропускной способностью"""
+        self.graph[u][v] = capacity
+    
+    def bfs(self, source, sink, parent):
+        """
+        Поиск увеличивающего пути от source к sink.
+        Возвращает True, если путь существует.
+        """
+        # Инициализируем массив посещенных вершин для каждого BFS
+        visited = [False] * self.V
+        queue = deque()
+        
+        queue.append(source)
+        visited[source] = True
+        parent[source] = -1
+        
+        while queue:
+            u = queue.popleft()
+            
+            # Ищем все соседние вершины
+            for v in range(self.V):
+                # Если вершина не посещена и есть остаточная пропускная способность
+                if not visited[v] and self.residual[u][v] > 0:
+                    queue.append(v)
+                    visited[v] = True
+                    parent[v] = u
+                    
+                    # Если достигли стока, путь найден
+                    if v == sink:
+                        return True
+        
+        return False
+    
+    def max_flow(self, source, sink):
+        """Найти максимальный поток от источника к стоку"""
+        # Создаем остаточную сеть (копия исходного графа)
+        self.residual = [row[:] for row in self.graph]
+        
+        # Массив для хранения пути
+        parent = [-1] * self.V
+        max_flow = 0
+        
+        # Пока существует увеличивающий путь
+        while self.bfs(source, sink, parent):
+            # Находим минимальную пропускную способность на пути
+            path_flow = float('inf')
+            s = sink
+            
+            # Проходим по пути от стока к источнику
+            while s != source:
+                path_flow = min(path_flow, self.residual[parent[s]][s])
+                s = parent[s]
+            
+            # Обновляем остаточную сеть вдоль пути
+            v = sink
+            while v != source:
+                u = parent[v]
+                # Уменьшаем пропускную способность прямого ребра
+                self.residual[u][v] -= path_flow
+                # Увеличиваем пропускную способность обратного ребра
+                self.residual[v][u] += path_flow
+                v = parent[v]
+            
+            # Увеличиваем общий поток
+            max_flow += path_flow
+        
+        return max_flow
+
+    def get_cut(self, source):
+        """
+        Найти минимальный разрез после вычисления максимального потока.
+        Возвращает множество вершин, достижимых из source в остаточной сети.
+        """
+        visited = [False] * self.V
+        queue = deque()
+        
+        queue.append(source)
+        visited[source] = True
+        
+        while queue:
+            u = queue.popleft()
+            
+            for v in range(self.V):
+                if not visited[v] and self.residual[u][v] > 0:
+                    visited[v] = True
+                    queue.append(v)
+        
+        # Вершины, достижимые из source
+        reachable = [i for i in range(self.V) if visited[i]]
+        return reachable
+
+# Пример использования с тестированием
+if __name__ == "__main__":
+    print("=" * 60)
+    print("ТЕСТ 1: Простой граф")
+    print("=" * 60)
+    
+    # Создаем простой граф
+    ff1 = FordFulkerson(4)
+    
+    # Добавляем ребра (откуда, куда, пропускная способность)
+    ff1.add_edge(0, 1, 10)
+    ff1.add_edge(0, 2, 10)
+    ff1.add_edge(1, 2, 2)
+    ff1.add_edge(1, 3, 8)
+    ff1.add_edge(2, 3, 10)
+    
+    source = 0
+    sink = 3
+    
+    max_flow = ff1.max_flow(source, sink)
+    
+    print(f"Граф с 4 вершинами:")
+    print("  Ребра: 0→1(10), 0→2(10), 1→2(2), 1→3(8), 2→3(10)")
+    print(f"  Максимальный поток из {source} в {sink}: {max_flow}")
+    
+    # Находим минимальный разрез
+    reachable = ff1.get_cut(source)
+    print(f"  Минимальный разрез (вершины из source): {reachable}")
+    
+    print("\n" + "=" * 60)
+    print("ТЕСТ 2: Классический пример из лекций")
+    print("=" * 60)
+    
+    # Классический пример графа
+    ff2 = FordFulkerson(6)
+    
+    # Ребра как в стандартном примере
+    edges = [
+        (0, 1, 16), (0, 2, 13),
+        (1, 2, 10), (1, 3, 12),
+        (2, 1, 4), (2, 4, 14),
+        (3, 2, 9), (3, 5, 20),
+        (4, 3, 7), (4, 5, 4)
+    ]
+    
+    for u, v, cap in edges:
+        ff2.add_edge(u, v, cap)
+    
+    max_flow2 = ff2.max_flow(0, 5)
+    reachable2 = ff2.get_cut(0)
+    
+    print(f"Граф с 6 вершинами (стандартный тест):")
+    print(f"  Максимальный поток: {max_flow2} (ожидается 23)")
+    print(f"  Минимальный разрез: {reachable2}")
+    
+    print("\n" + "=" * 60)
+    print("ТЕСТ 3: Граф без пути от source к sink")
+    print("=" * 60)
+    
+    ff3 = FordFulkerson(3)
+    ff3.add_edge(0, 1, 10)
+    ff3.add_edge(2, 1, 5)  # Нет пути от 0 к 2
+    
+    max_flow3 = ff3.max_flow(0, 2)
+    print(f"Граф без пути от 0 к 2:")
+    print(f"  Максимальный поток: {max_flow3} (ожидается 0)")
+    
+    print("\n" + "=" * 60)
+    print("ТЕСТ 4: Простой путь")
+    print("=" * 60)
+    
+    ff4 = FordFulkerson(3)
+    ff4.add_edge(0, 1, 5)
+    ff4.add_edge(1, 2, 3)
+    
+    max_flow4 = ff4.max_flow(0, 2)
+    print(f"Простой путь 0→1→2:")
+    print(f"  Максимальный поток: {max_flow4} (ожидается 3 - bottleneck)")
